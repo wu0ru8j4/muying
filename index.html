@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>沐映資金管理</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="description" content="沐映資金管理：以自訂單位拆分、VIP 權重、自動/手動配對、CSV/JSON 匯出、備份/還原。純前端，可直接部署到 GitHub Pages。">
+<style>
+  :root {
+    --bg:#0f0b12;
+    --fg:#f7f2fa;
+    --muted:#d9cfe2;
+    --card:#19121f;
+    --line:#2a2033;
+    --acc:#e7b8ff;  /* 粉紫重點 */
+    --acc2:#ffc0e8; /* 柔粉 */
+    --ok:#7ef1c8;
+    --bad:#ff98a9;
+    --warn:#ffd88f;
+  }
+  html,body{height:100%}
+  body{background:linear-gradient(180deg,#100a14,#120d19 50%,#100a14); color:var(--fg); font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,"PingFang TC","Noto Sans CJK TC",Arial,sans-serif; margin:0}
+  header{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,rgba(21,14,28,.9),rgba(21,14,28,.6) 60%,transparent);padding:18px 16px 8px;border-bottom:1px solid var(--line);backdrop-filter: blur(6px)}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .logo{width:28px;height:28px;border-radius:8px;background:radial-gradient(circle at 30% 30%, var(--acc), transparent 40%), radial-gradient(circle at 70% 70%, var(--acc2), transparent 40%), #1c1423;border:1px solid var(--line);box-shadow:0 6px 20px rgba(231,184,255,.25) inset}
+  h1{margin:0 0 2px;font-size:22px;letter-spacing:.5px}
+  .sub{color:var(--muted);font-size:12px}
+  .container{max-width:1200px;margin:12px auto 90px;padding:0 16px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:14px 0;box-shadow:0 10px 24px rgba(60,20,90,.25)}
+  section h2{margin:0 0 10px;font-size:18px}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  input,select,button,textarea{background:#160f1c;color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;outline:none}
+  input::placeholder{color:#a997b6}
+  button{cursor:pointer;transition:.15s transform ease}
+  button:active{transform:scale(.98)}
+  .primary{background:linear-gradient(180deg,var(--acc),#d6a2ff); color:#2a1340;border-color:#9e6bd1;font-weight:700}
+  .ghost{background:transparent}
+  .badbtn{border-color:#7a3a47;color:#ffc3cd}
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  th,td{border-bottom:1px solid var(--line);text-align:left;padding:8px 6px;font-size:14px}
+  th{color:#e6d8f2;font-weight:700}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .badc{color:var(--bad)}
+  .muted{color:var(--muted)}
+  footer{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(0deg,rgba(21,14,28,.95),rgba(21,14,28,.6) 60%,transparent);border-top:1px solid var(--line);padding:10px 16px;display:flex;gap:8px;justify-content:center}
+  .kpi{display:flex;gap:12px;flex-wrap:wrap}
+  .kpi .card{background:#160f1c;border:1px solid var(--line);padding:10px 12px;border-radius:12px;box-shadow:0 6px 12px rgba(231,184,255,.1) inset}
+  .small{font-size:12px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width: 860px){ .grid2{grid-template-columns:1fr} }
+  a.link{color:var(--acc)}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo"></div>
+    <div>
+      <h1>沐映資金管理</h1>
+      <div class="sub">VIP 權重配對・跨日生效・分單配對・CSV/JSON 匯出｜純前端，可部署到 GitHub Pages</div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <section>
+    <h2>即時指標</h2>
+    <div class="kpi">
+      <div class="card">買方可配對拆分：<b id="kpiBuy">0</b></div>
+      <div class="card">賣方可配對拆分：<b id="kpiSell">0</b></div>
+      <div class="card">已完成配對數：<b id="kpiMatches">0</b></div>
+      <div class="card">自動配對：<b id="kpiAuto" class="warn">關閉</b></div>
+      <div class="card">資料量：<b id="kpiSize">0 KB</b></div>
+      <div class="card">策略：<b id="kpiStrategy">VIP→FIFO</b></div>
+      <div class="card">生效：<b id="kpiElig">即時</b></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>系統設定</h2>
+    <div class="grid2">
+      <div>
+        <div class="row">
+          <label>匹配優先：</label>
+          <select id="strategy" onchange="saveSettings()">
+            <option value="VIP_FIFO">VIP 優先 → 同級 FIFO</option>
+            <option value="FIFO">純 FIFO（時間先到先配）</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>拆分單位（TWD）：</label>
+          <input id="unit" type="number" min="1" value="1000" oninput="saveSettings()" />
+        </div>
+      </div>
+      <div>
+        <div class="row">
+          <label>生效：
+            <select id="eligRule" onchange="saveSettings()">
+              <option value="immediate">即時生效</option>
+              <option value="nextday">次日 00:00 生效</option>
+            </select>
+          </label>
+          <span class="muted small">（跨日控管，可模擬隔日才能配對）</span>
+        </div>
+        <div class="row">
+          <button class="ghost" onclick="exportJSON()">匯出 JSON</button>
+          <input type="file" id="importFile" accept=".json" />
+          <button onclick="importJSON()">匯入還原</button>
+          <button class="badbtn" onclick="if(confirm('清空所有資料？')) resetAll()">清空</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>廠商（含 VIP）</h2>
+    <div class="row">
+      <input id="v_name" placeholder="廠商名稱 *" />
+      <input id="v_code" placeholder="代碼 (選填)" />
+      <input id="v_tax" placeholder="統編 (選填)" />
+      <input id="v_mail" placeholder="Email (選填)" />
+      <select id="v_vip">
+        <option value="0">VIP 0（Free）</option>
+        <option value="1">VIP 1</option>
+        <option value="2">VIP 2</option>
+        <option value="3">VIP 3</option>
+        <option value="99">Enterprise</option>
+      </select>
+      <button class="primary" onclick="createVendor()">新增</button>
+      <input id="v_q" placeholder="搜尋（名稱/代碼）" oninput="loadVendors()" />
+      <button class="ghost" onclick="loadVendors()">刷新</button>
+    </div>
+    <table id="vendors"></table>
+  </section>
+
+  <section>
+    <h2>訂單（自動拆分）</h2>
+    <div class="row">
+      <select id="o_type">
+        <option value="buy">買（buy）</option>
+        <option value="sell">賣（sell）</option>
+      </select>
+      <input id="o_amount" type="number" min="1" step="1" placeholder="金額（TWD）*" />
+      <select id="o_vendor">
+        <option value="">廠商（選填）</option>
+      </select>
+      <button class="primary" onclick="createOrder()">建立訂單</button>
+      <input id="o_q" placeholder="搜尋（類型/廠商ID）" oninput="loadOrders()" />
+      <button class="ghost" onclick="loadOrders()">刷新</button>
+    </div>
+    <table id="orders"></table>
+  </section>
+
+  <section>
+    <h2>拆分 & 配對</h2>
+    <div class="row">
+      <select id="s_side" onchange="loadSplits()">
+        <option value="all">全部</option>
+        <option value="buy">買方</option>
+        <option value="sell">賣方</option>
+      </select>
+      <label class="small">僅可配對：<input type="checkbox" id="onlyEligible" checked onchange="loadSplits()" /></label>
+      <label class="small">僅未滿額：<input type="checkbox" id="onlyOpen" checked onchange="loadSplits()" /></label>
+      <input id="s_q" placeholder="搜尋（訂單ID）" oninput="loadSplits()" />
+      <button onclick="loadSplits()">載入</button>
+    </div>
+    <div class="row">
+      <button class="primary" onclick="triggerOnce()">手動配對一次</button>
+      <button onclick="toggleAuto()" id="btnAuto">開啟自動配對</button>
+      <button class="ghost" onclick="loadMatches()">刷新配對紀錄</button>
+      <button onclick="exportCSV()">下載配對 CSV</button>
+    </div>
+    <table id="splits"></table>
+  </section>
+
+  <section>
+    <h2>配對紀錄（含手動解除）</h2>
+    <table id="matches"></table>
+  </section>
+
+</div>
+
+<footer>
+  <div class="muted small">© 沐映 — 前端 Demo。需要多人/權限/發票與雲端資料庫，告訴我我會提供後端一鍵部署。</div>
+</footer>
+
+<script>
+/* ===================
+ *  設定與資料層
+ * =================== */
+const KEY = 'muying_pages_v1';
+const DEFAULTS = {
+  settings: { strategy: 'VIP_FIFO', unit: 1000, eligRule: 'immediate' },
+  vendors: [], orders: [], splits: [], matches: [],
+  seq: { vendor:1, order:1, split:1, match:1 }
+};
+const DB = loadDB();
+
+function loadDB(){ const raw=localStorage.getItem(KEY); if(!raw){ localStorage.setItem(KEY, JSON.stringify(DEFAULTS)); return structuredClone(DEFAULTS); } try{ const obj=JSON.parse(raw); return Object.assign(structuredClone(DEFAULTS), obj, { seq:Object.assign(structuredClone(DEFAULTS.seq), obj.seq||{}) }); }catch(e){ alert('資料庫解析失敗，將重置'); localStorage.setItem(KEY, JSON.stringify(DEFAULTS)); return structuredClone(DEFAULTS);}}
+function saveDB(){ localStorage.setItem(KEY, JSON.stringify(DB)); updateKPIs(); }
+function resetAll(){ localStorage.setItem(KEY, JSON.stringify(DEFAULTS)); location.reload(); }
+function now(){ return Date.now(); }
+function bytesSize(str){ return new Blob([str]).size; }
+function download(filename, text, type='text/plain'){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=filename; a.click(); URL.revokeObjectURL(a.href); }
+function renderTable(id, rows, cols){ const el=document.getElementById(id); const thead='<tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr>'; const tbody=rows.map(r=>'<tr>'+cols.map(c=>`<td>${(typeof c==='function'? c(r): r[c]??'')}</td>`).join('')+'</tr>').join(''); el.innerHTML='<thead>'+thead+'</thead><tbody>'+tbody+'</tbody>'; }
+
+/* ===================
+ *  設定
+ * =================== */
+function saveSettings(){ const s=DB.settings; s.strategy=document.getElementById('strategy').value; s.unit=Math.max(1, parseInt(document.getElementById('unit').value,10)||1000); s.eligRule=document.getElementById('eligRule').value; saveDB(); updateSettingsUI(); loadSplits(); }
+function updateSettingsUI(){ document.getElementById('strategy').value=DB.settings.strategy; document.getElementById('unit').value=DB.settings.unit; document.getElementById('eligRule').value=DB.settings.eligRule; document.getElementById('kpiStrategy').textContent=DB.settings.strategy==='VIP_FIFO'?'VIP→FIFO':'FIFO'; document.getElementById('kpiElig').textContent=DB.settings.eligRule==='immediate'?'即時':'次日 00:00'; }
+
+/* ===================
+ *  廠商（含 VIP）
+ * =================== */
+function createVendor(){ const name=document.getElementById('v_name').value.trim(); if(!name) return alert('請輸入廠商名稱'); const vendor={ id:DB.seq.vendor++, name, vendor_code:document.getElementById('v_code').value.trim()||'', tax_id:document.getElementById('v_tax').value.trim()||'', contact_email:document.getElementById('v_mail').value.trim()||'', vip_level: parseInt(document.getElementById('v_vip').value,10), created_at:now() }; DB.vendors.unshift(vendor); saveDB(); ['v_name','v_code','v_tax','v_mail'].forEach(id=>document.getElementById(id).value=''); loadVendors(); refreshVendorOptions(); }
+function getVendor(id){ return DB.vendors.find(v=>v.id===id); }
+function vipOfVendor(id){ const v=getVendor(id); return v? (v.vip_level||0) : 0; }
+function loadVendors(){ const q=(document.getElementById('v_q').value||'').toLowerCase(); let rows=DB.vendors; if(q) rows=rows.filter(v=>(v.name||'').toLowerCase().includes(q)||(v.vendor_code||'').toLowerCase().includes(q)); renderTable('vendors', rows, ['id','name','vendor_code',(r=>`VIP ${r.vip_level??0}`),'tax_id','contact_email','created_at']); }
+function refreshVendorOptions(){ const sel=document.getElementById('o_vendor'); const cur=sel.value; sel.innerHTML='<option value=\"\">廠商（選填）</option>'+DB.vendors.map(v=>`<option value=\"${v.id}\">#${v.id} ${v.name} (VIP ${v.vip_level??0})</option>`).join(''); sel.value=cur; }
+
+/* ===================
+ *  訂單（自動拆分）
+ * =================== */
+function fmt(ts){ return new Date(ts).toLocaleString(); }
+function eligibilityTs(baseTs){ if(DB.settings.eligRule==='immediate') return baseTs; const d=new Date(baseTs); d.setDate(d.getDate()+1); d.setHours(0,0,0,0); return +d; }
+function createOrder(){ const type=document.getElementById('o_type').value; const amount=parseInt(document.getElementById('o_amount').value,10); if(!Number.isInteger(amount)||amount<=0) return alert('金額需為正整數'); const vendor_id=parseInt(document.getElementById('o_vendor').value,10); const order={ id:DB.seq.order++, type, amount, vendor_id:Number.isInteger(vendor_id)?vendor_id:null, status:'open', created_at:now() }; DB.orders.unshift(order); let remain=amount; while(remain>0){ const chunk=Math.min(DB.settings.unit, remain); DB.splits.push({ id:DB.seq.split++, order_id:order.id, side:type, unit_amount:DB.settings.unit, remaining_amount:chunk, status:'available', eligible_since:eligibilityTs(now()), created_at:now() }); remain-=chunk; } saveDB(); document.getElementById('o_amount').value=''; document.getElementById('o_vendor').value=''; loadOrders(); loadSplits(); }
+function deleteOrder(id){ if(!confirm(`刪除訂單 #${id}？`)) return; DB.orders=DB.orders.filter(o=>o.id!==id); DB.splits=DB.splits.filter(s=>s.order_id!==id); DB.matches=DB.matches.filter(m=>{ const b=DB.splits.find(s=>s.id===m.buy_split_id); const s=DB.splits.find(s=>s.id===m.sell_split_id); return b&&s; }); saveDB(); loadOrders(); loadSplits(); loadMatches(); }
+function loadOrders(){ const q=(document.getElementById('o_q').value||'').toLowerCase(); let rows=DB.orders; if(q) rows=rows.filter(o=>(o.type||'').includes(q)||String(o.vendor_id||'').includes(q)); renderTable('orders', rows, ['id','type','amount','status',(r=> (r.vendor_id? `#${r.vendor_id}（VIP ${vipOfVendor(r.vendor_id)}）` : '')),'created_at',(r=> `<button class=\"badbtn small\" onclick=\"deleteOrder(${r.id})\">刪除</button>`)]); }
+
+/* ===================
+ *  拆分與配對
+ * =================== */
+function isEligible(split){ return split.eligible_since<=now(); }
+function listAvailable(side){ return DB.splits.filter(s=>(s.status==='available'||s.status==='partial')&&(!side||s.side===side)&&(document.getElementById('onlyEligible').checked?isEligible(s):true)).sort((a,b)=>{ if(DB.settings.strategy==='FIFO') return a.created_at-b.created_at; const va=vipOfVendor(DB.orders.find(o=>o.id===a.order_id)?.vendor_id||null); const vb=vipOfVendor(DB.orders.find(o=>o.id===b.order_id)?.vendor_id||null); if(va!==vb) return vb-va; return a.created_at-b.created_at; }); }
+function matchOnce(){ const buy=listAvailable('buy')[0]; const sell=listAvailable('sell')[0]; if(!buy||!sell) return false; const amt=Math.min(buy.remaining_amount, sell.remaining_amount); DB.matches.unshift({ id:DB.seq.match++, buy_split_id:buy.id, sell_split_id:sell.id, amount:amt, created_at:now() }); buy.remaining_amount-=amt; sell.remaining_amount-=amt; buy.status=(buy.remaining_amount<=0)?'matched':'partial'; sell.status=(sell.remaining_amount<=0)?'matched':'partial'; const closeIfDone=(orderId)=>{ const hasOpen=DB.splits.some(s=>s.order_id===orderId && s.status!=='matched'); if(!hasOpen){ const od=DB.orders.find(o=>o.id===orderId); if(od) od.status='closed'; } }; closeIfDone(buy.order_id); closeIfDone(sell.order_id); saveDB(); return true; }
+function unlinkMatch(id){ const m=DB.matches.find(x=>x.id===id); if(!m) return; if(!confirm(`解除配對 #${id}？`)) return; const buy=DB.splits.find(s=>s.id===m.buy_split_id); const sell=DB.splits.find(s=>s.id===m.sell_split_id); if(buy){ buy.remaining_amount+=m.amount; buy.status='available'; } if(sell){ sell.remaining_amount+=m.amount; sell.status='available'; } DB.matches=DB.matches.filter(x=>x.id!==id); if(buy){ const od=DB.orders.find(o=>o.id===buy.order_id); if(od) od.status='open'; } if(sell){ const od=DB.orders.find(o=>o.id===sell.order_id); if(od) od.status='open'; } saveDB(); loadSplits(); loadMatches(); }
+let autoTimer=null;
+function triggerOnce(){ const did=matchOnce(); if(!did) alert('沒有可配對的拆分（檢查可用條件與跨日生效）'); loadSplits(); loadMatches(); }
+function toggleAuto(){ if(autoTimer){ clearInterval(autoTimer); autoTimer=null; document.getElementById('btnAuto').textContent='開啟自動配對'; document.getElementById('kpiAuto').textContent='關閉'; document.getElementById('kpiAuto').className='badc'; } else { autoTimer=setInterval(()=>{ if(matchOnce()){ loadSplits(); loadMatches(); } }, 1000); document.getElementById('btnAuto').textContent='關閉自動配對'; document.getElementById('kpiAuto').textContent='開啟中'; document.getElementById('kpiAuto').className='ok'; } }
+function loadSplits(){ const side=document.getElementById('s_side').value; const q=(document.getElementById('s_q')?.value||'').trim(); const onlyOpen=document.getElementById('onlyOpen').checked; let rows=DB.splits.filter(s => (!side || side==='all' || s.side===side)); if(document.getElementById('onlyEligible').checked) rows=rows.filter(isEligible); if(onlyOpen) rows=rows.filter(s => s.status!=='matched'); if(q) rows=rows.filter(s => String(s.order_id).includes(q)); rows=rows.sort((a,b)=> a.created_at-b.created_at); renderTable('splits', rows, ['id','order_id','side','remaining_amount','status',(r=> (isEligible(r)? '<span class=\"ok\">可配</span>' : '<span class=\"warn\">未生效</span>')),(r=>{ const o=DB.orders.find(x=>x.id===r.order_id); const v=o && o.vendor_id ? getVendor(o.vendor_id) : null; return v ? `#${v.id} ${v.name}（VIP ${v.vip_level??0}）` : ''; }),'eligible_since','created_at']); }
+
+/* ===================
+ *  配對紀錄與匯出
+ * =================== */
+function loadMatches(){ renderTable('matches', DB.matches, ['id',(r=>{ const b=DB.splits.find(s=>s.id===r.buy_split_id), o=b&&DB.orders.find(x=>x.id===b.order_id); const v=o&&o.vendor_id? getVendor(o.vendor_id):null; return `#${r.buy_split_id}（訂單#${b?b.order_id:''} ${v? 'VIP '+(v.vip_level??0):''}）`; }),(r=>{ const s=DB.splits.find(x=>x.id===r.sell_split_id), o=s&&DB.orders.find(x=>x.id===s.order_id); const v=o&&o.vendor_id? getVendor(o.vendor_id):null; return `#${r.sell_split_id}（訂單#${s?s.order_id:''} ${v? 'VIP '+(v.vip_level??0):''}）`; }),'amount','created_at',(r=> `<button class=\"badbtn small\" onclick=\"unlinkMatch(${r.id})\">解除</button>`)]); }
+function exportCSV(){ const rows=DB.matches.map(m=>{ const b=DB.splits.find(s=>s.id===m.buy_split_id); const s=DB.splits.find(s2=>s2.id===m.sell_split_id); const ob=b && DB.orders.find(o=>o.id===b.order_id); const os=s && DB.orders.find(o=>o.id===s.order_id); const vb=ob&&ob.vendor_id? getVendor(ob.vendor_id):null; const vs=os&&os.vendor_id? getVendor(os.vendor_id):null; return { match_id:m.id, buy_split_id:b?b.id:'', sell_split_id:s?s.id:'', buy_order_id:ob?ob.id:'', sell_order_id:os?os.id:'', buy_vendor_id:ob? (ob.vendor_id||''):'', sell_vendor_id:os? (os.vendor_id||''):'', buy_vip:vb? (vb.vip_level??0):'', sell_vip:vs? (vs.vip_level??0):'', amount:m.amount, created_at:new Date(m.created_at).toISOString() }; }); const cols=['match_id','buy_split_id','sell_split_id','buy_order_id','sell_order_id','buy_vendor_id','sell_vendor_id','buy_vip','sell_vip','amount','created_at']; let csv=cols.join(',')+'\n'; rows.forEach(r=>{ csv+=cols.map(c=>r[c]).join(',')+'\n'; }); download('match-history-muying.csv', csv, 'text/csv;charset=utf-8'); }
+function exportJSON(){ download('muying-backup.json', JSON.stringify(DB, null, 2), 'application/json'); }
+function importJSON(){ const f=document.getElementById('importFile').files[0]; if(!f) return alert('請先選擇檔案'); const reader=new FileReader(); reader.onload=()=>{ try{ const obj=JSON.parse(reader.result); if(!obj||!obj.vendors||!obj.orders||!obj.splits||!obj.matches) return alert('檔案格式不正確'); Object.assign(DB, DEFAULTS, obj); saveDB(); initUI(); alert('匯入成功'); }catch(e){ alert('解析失敗：'+e.message); } }; reader.readAsText(f); }
+
+/* ===================
+ *  KPI & 初始化
+ * =================== */
+function updateKPIs(){ const buys=listAvailable('buy').length; const sells=listAvailable('sell').length; document.getElementById('kpiBuy').textContent=buys; document.getElementById('kpiSell').textContent=sells; document.getElementById('kpiMatches').textContent=DB.matches.length; const sizeKB=(bytesSize(localStorage.getItem(KEY)||'')/1024).toFixed(1); document.getElementById('kpiSize').textContent=sizeKB+' KB'; }
+function initUI(){ updateSettingsUI(); loadVendors(); refreshVendorOptions(); loadOrders(); loadSplits(); loadMatches(); updateKPIs(); }
+(function init(){ initUI(); })();
+</script>
+</body>
+</html>
