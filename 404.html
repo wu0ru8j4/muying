@@ -1,8 +1,12 @@
-<!doctype html>
-<html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=./"></head><body>
+<!doctype html><html lang="zh-Hant"><head>
+<meta charset="utf-8"><meta http-equiv="refresh" content="0; url=./">
+<title>404</title></head><body>
 <script>
-// GitHub Pages SPA fallback: redirect any 404 to root
-const url = new URL(location.href);
-location.replace(url.origin + url.pathname.split('/').slice(0, -1).join('/') + '/');
+// GitHub Pages SPA fallback：任何 404 直接回根目錄 index.html
+try{
+  var url=new URL(location.href);
+  var root = url.origin + url.pathname.split('/').slice(0,-1).join('/') + '/';
+  location.replace(root);
+}catch(e){ location.href='./'; }
 </script>
 </body></html>
