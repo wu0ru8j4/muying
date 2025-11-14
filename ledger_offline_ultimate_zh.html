@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>配對帳冊 · Ultimate 離線版</title>
+  <style>
+    :root{--bg:#f7f7fb;--fg:#111;--muted:#6b7280;--card:#fff;--border:#e5e7eb;--pri:#111827;--ok:#059669;--bad:#b91c1c}
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:1200px;margin:0 auto;padding:12px}
+    header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.92);backdrop-filter: blur(6px);border-bottom:1px solid var(--border)}
+    h1{font-size:20px;margin:8px 0}
+    .row{display:flex;gap:8px;align-items:center}
+    .sp{flex:1}
+    .btn{border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
+    .btn.ok{background:var(--ok);color:#fff;border-color:#047857}
+    .btn.bad{background:var(--bad);color:#fff;border-color:#991b1b}
+    nav.tabs{padding:8px 0;display:flex;gap:8px;flex-wrap:wrap}
+    .tab{padding:8px 12px;border-radius:10px;background:#eef;border:1px solid #dbeafe;cursor:pointer}
+    .tab.on{background:var(--pri);border-color:#0f172a;color:#fff}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:12px}
+    .grid{display:grid;gap:12px}
+    .g2{grid-template-columns:1fr 1fr}
+    .g3{grid-template-columns:1fr 1fr 1fr}
+    .g4{grid-template-columns:repeat(4,1fr)}
+    .g6{grid-template-columns:repeat(6,1fr)}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+    input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#fff}
+    textarea{min-height:80px;resize:vertical}
+    input[type=number]{-moz-appearance:textfield}
+    input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+    thead th{background:#f3f4f6;position:sticky;top:0}
+    .muted{color:var(--muted);font-size:12px}
+    .stats{margin-top:12px}
+    .stat{background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px}
+    .stat .t{font-size:12px;color:#6b7280}
+    .stat .v{font-size:16px;font-weight:700}
+    .hidden{display:none}
+    footer{margin:16px 0 24px;color:#6b7280;font-size:12px;text-align:center}
+    @media (max-width: 980px){.g3,.g4,.g6{grid-template-columns:1fr}.g2{grid-template-columns:1fr}}
+    #errorBox{position:fixed;bottom:12px;left:12px;right:12px;background:#fff3cd;border:1px solid #facc15;color:#111;padding:10px;border-radius:10px;font-size:12px;display:none}
+    #errorBox pre{white-space:pre-wrap;margin:6px 0 0}
+    .tag{display:inline-block;padding:2px 6px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:12px}
+    .kpi{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+    .kpi .stat{background:linear-gradient(180deg,#fff, #f9fafb)}
+    .right{text-align:right}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:#fff;font-size:12px;margin-right:6px}
+    .toolbar .btn{padding:6px 8px}
+    .kbd{display:inline-block;border:1px solid var(--border);border-radius:6px;padding:0 6px;background:#fff;font-size:12px}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:12px;z-index:50}
+    @media print{header,footer,#errorBox{display:none!important} body{background:#fff} .card{box-shadow:none;border:0;padding:0}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="row">
+        <h1>配對帳冊 · Ultimate 離線版</h1>
+        <div class="sp"></div>
+        <div class="toolbar row">
+          <button class="btn" id="btnUndo" title="復原（Ctrl/⌘+Z）">復原</button>
+          <button class="btn" id="btnRedo" title="重做（Ctrl/⌘+Y）">重做</button>
+          <button class="btn" id="btnSettings">設定</button>
+          <button class="btn" id="btnBackup">備份/還原</button>
+          <button class="btn" id="btnHelp">使用說明</button>
+        </div>
+      </div>
+      <nav class="tabs">
+        <button class="tab on" data-tab="dashboard">總覽</button>
+        <button class="tab" data-tab="orders">訂單</button>
+        <button class="tab" data-tab="customers">客戶（含 VIP）</button>
+        <button class="tab" data-tab="split">拆分紀錄</button>
+        <button class="tab" data-tab="query">查詢（依客戶/日期/分組）</button>
+        <button class="tab" data-tab="reportDay">報表（單日）</button>
+        <button class="tab" data-tab="recycle">回收桶</button>
+        <div class="sp"></div>
+        <button class="btn" id="btnPairs">匯出配對 CSV</button>
+        <button class="btn" id="btnExport">匯出 JSON</button>
+        <label class="btn" style="cursor:pointer">匯入 JSON<input id="fileImport" type="file" accept="application/json" class="hidden"></label>
+      </nav>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <main id="view"></main>
+
+    <section class="stats kpi" id="kpiBar">
+      <div class="stat"><div class="t">未配對買入單位</div><div class="v" id="statBuyOpen">0</div></div>
+      <div class="stat"><div class="t">未配對賣出單位</div><div class="v" id="statSellOpen">0</div></div>
+      <div class="stat"><div class="t">餘額（買 / 賣）</div><div class="v" id="statRem">0 / 0</div></div>
+      <div class="stat"><div class="t">已配對總對數</div><div class="v" id="statPairs">0 對</div></div>
+      <div class="stat"><div class="t">今日收入 / 支出</div><div class="v" id="statToday">—</div></div>
+      <div class="stat"><div class="t">單位（$）</div><div class="v" id="statUnit">1000</div></div>
+    </section>
+
+    <footer>完全離線、資料存於 localStorage：<code>ledger1000_web_v7</code>（含「單位」與所有紀錄，支援備份/還原、復原/重做）。</footer>
+  </div>
+
+  <div id="errorBox"><b>執行錯誤：</b> 若功能無反應，請把此訊息截圖給我。<pre id="errorText"></pre></div>
+
+<script>
+(function(){
+  "use strict";
+
+  window.addEventListener("error", function(e){
+    const box = document.getElementById("errorBox");
+    const pre = document.getElementById("errorText");
+    pre.textContent = (e && e.message? e.message : String(e)) + "\\n" + (e.filename||"") + ":" + (e.lineno||"");
+    box.style.display = "block";
+  });
+
+  const LS_KEY = "ledger1000_web_v7";
+  const BAK_PREFIX = LS_KEY + "_bak_"; // rolling backups
+  function nowISO(){ return new Date().toISOString().slice(0,19); }
+  function todayStr(){ return new Date().toISOString().slice(0,10); }
+  function clone(x){ return JSON.parse(JSON.stringify(x)); }
+  function esc(s){ return String(s).replace(/[&<>"]/g, c=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function pad(n){return String(n).padStart(2,'0');}
+  function sideZh(s){ return s==='BUY' ? '買入' : '賣出'; }
+
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if(raw){ return migrate(JSON.parse(raw)); }
+    }catch(_){}
+    return {customers:[],transactions:[],units:[],pairs:[],deleted:[],settings:{unit:1000,buyRemainder:0,sellRemainder:0,map:"SELL_IN_BUY_OUT",backupKeep:10,autoBackup:true,dateFormat:"ISO"},seq:{customer:1,tx:1,unit:1,pair:1}};
+  }
+  function save(db){ localStorage.setItem(LS_KEY, JSON.stringify(db)); }
+  function snapshot(label){
+    if(!state.settings.autoBackup) return;
+    const keep = Math.max(1, Number(state.settings.backupKeep||10));
+    const key = BAK_PREFIX + Date.now() + "_" + (label||"auto");
+    try{ localStorage.setItem(key, JSON.stringify(state)); }catch(e){ console.warn("backup failed", e); }
+    // rotate
+    const keys = Object.keys(localStorage).filter(k=>k.startsWith(BAK_PREFIX)).sort();
+    while(keys.length>keep){
+      const rm = keys.shift(); try{ localStorage.removeItem(rm); }catch(_){}
+    }
+  }
+  function migrate(db){
+    db.settings = db.settings || { unit:1000, buyRemainder:0, sellRemainder:0, map:"SELL_IN_BUY_OUT", backupKeep:10, autoBackup:true, dateFormat:"ISO" };
+    if(typeof db.settings.unit!=="number" || db.settings.unit<1 || !Number.isFinite(db.settings.unit)) db.settings.unit = 1000;
+    if(!db.settings.map) db.settings.map = "SELL_IN_BUY_OUT";
+    if(typeof db.settings.backupKeep!=="number") db.settings.backupKeep = 10;
+    if(typeof db.settings.autoBackup!=="boolean") db.settings.autoBackup = true;
+    if(!db.settings.dateFormat) db.settings.dateFormat = "ISO";
+    db.seq = db.seq || { customer:1, tx:1, unit:1, pair:1 };
+    db.customers = Array.isArray(db.customers)? db.customers : [];
+    db.deleted = Array.isArray(db.deleted)? db.deleted : [];
+    return db;
+  }
+
+  // history (undo/redo)
+  const undoStack=[]; const redoStack=[];
+  function pushHistory(){
+    undoStack.push(JSON.stringify(state));
+    if(undoStack.length>50) undoStack.shift();
+    redoStack.length=0;
+  }
+  function doUndo(){
+    if(!undoStack.length) return;
+    redoStack.push(JSON.stringify(state));
+    const last = undoStack.pop();
+    state = migrate(JSON.parse(last));
+    save(state); render();
+  }
+  function doRedo(){
+    if(!redoStack.length) return;
+    undoStack.push(JSON.stringify(state));
+    const next = redoStack.pop();
+    state = migrate(JSON.parse(next));
+    save(state); render();
+  }
+
+  let state = load();
+
+  function rebuild(s0){
+    const s = clone(s0);
+    s.units = []; s.pairs = [];
+    s.settings.buyRemainder = 0; s.settings.sellRemainder = 0;
+    s.seq.unit = 1; s.seq.pair = 1;
+    const UNIT = Math.max(1, Math.floor(s.settings.unit||1000));
+    const ordered = s.transactions.slice().sort((a,b)=> (a.createdAt||"").localeCompare(b.createdAt||"") || a.id-b.id);
+    for(const tx of ordered){
+      const side = tx.side==="SELL" ? "SELL":"BUY";
+      const remKey = side==="BUY" ? "buyRemainder":"sellRemainder";
+      const total = (s.settings[remKey]||0) + Number(tx.amount||0);
+      const count = Math.floor(total/UNIT);
+      s.settings[remKey] = total%UNIT;
+      for(let i=0;i<count;i++){
+        s.units.push({id:s.seq.unit++, side, txId:tx.id, customerId:tx.customerId||null, createdAt:tx.createdAt, matched:false});
+      }
+      autoMatchInPlace(s);
+    }
+    return s;
+  }
+  function autoMatchInPlace(s){
+    const buys = s.units.filter(u=>u.side==="BUY"&&!u.matched).map(u=>u.id).sort((a,b)=>a-b);
+    const sells = s.units.filter(u=>u.side==="SELL"&&!u.matched).map(u=>u.id).sort((a,b)=>a-b);
+    const n=Math.min(buys.length,sells.length);
+    for(let i=0;i<n;i++){
+      const buId=buys[i], seId=sells[i];
+      s.pairs.push({id:s.seq.pair++, buyUnitId:buId, sellUnitId:seId, pairedAt:nowISO()});
+      const bu=s.units.find(x=>x.id===buId); if(bu) bu.matched=true;
+      const se=s.units.find(x=>x.id===seId); if(se) se.matched=true;
+    }
+  }
+  function stats(db){
+    const buyOpen = db.units.filter(u=>u.side==='BUY' && !u.matched).length;
+    const sellOpen = db.units.filter(u=>u.side==='SELL' && !u.matched).length;
+    return { buyOpen, sellOpen, br: db.settings.buyRemainder||0, sr: db.settings.sellRemainder||0, totalPairs: db.pairs.length };
+  }
+
+  const view = document.getElementById("view");
+  const tabs = Array.from(document.querySelectorAll(".tab"));
+  let tab = "dashboard";
+  tabs.forEach(el=> el.addEventListener("click", function(){ setTab(el.dataset.tab); }));
+  function setTab(t){ tab=t; tabs.forEach(el=> el.classList.toggle("on", el.dataset.tab===t)); render(); }
+
+  // top toolbar
+  document.getElementById("btnUndo").onclick = doUndo;
+  document.getElementById("btnRedo").onclick = doRedo;
+  document.getElementById("btnSettings").onclick = openSettings;
+  document.getElementById("btnBackup").onclick = openBackup;
+  document.getElementById("btnHelp").onclick = openHelp;
+  document.addEventListener("keydown", function(e){
+    const z = (e.key==="z"||e.key==="Z") && (e.ctrlKey||e.metaKey);
+    const y = (e.key==="y"||e.key==="Y") && (e.ctrlKey||e.metaKey);
+    if(z){ e.preventDefault(); doUndo(); }
+    if(y){ e.preventDefault(); doRedo(); }
+  });
+
+  // export/import
+  document.getElementById("btnExport").addEventListener("click", function(){
+    download(JSON.stringify(state,null,2), "application/json", "ledger_"+Date.now()+".json");
+  });
+  document.getElementById("btnPairs").addEventListener("click", function(){
+    const UNIT = Math.max(1, Math.floor(state.settings.unit||1000));
+    const rows = [["配對ID","配對時間","買入 交易ID","買入客戶","賣出 交易ID","賣出客戶","單位金額"]];
+    for(const p of state.pairs){
+      const bu = state.units.find(u=>u.id===p.buyUnitId);
+      const se = state.units.find(u=>u.id===p.sellUnitId);
+      const bCust = (state.customers.find(c=>c.id===(bu&&bu.customerId))||{}).name || "";
+      const sCust = (state.customers.find(c=>c.id===(se&&se.customerId))||{}).name || "";
+      rows.push([p.id, p.pairedAt, (bu&&bu.txId)||"", bCust, (se&&se.txId)||"", sCust, UNIT]);
+    }
+    const csv = rows.map(r=>r.join(",")).join("\n");
+    download(csv, "text/csv", "pairs_"+Date.now()+".csv");
+  });
+  document.getElementById("fileImport").addEventListener("change", function(e){
+    const f = e.target.files && e.target.files[0]; if(!f) return;
+    const fr = new FileReader();
+    fr.onload = function(){
+      try{
+        pushHistory(); snapshot("import");
+        const parsed = JSON.parse(fr.result);
+        let next = migrate(parsed);
+        next.settings.unit = next.settings.unit || state.settings.unit;
+        state = rebuild(next); save(state); render(); alert("匯入完成");
+      }catch(err){ alert("匯入失敗："+err.message); }
+    };
+    fr.readAsText(f, "utf-8"); e.target.value="";
+  });
+
+  // settings
+  function openSettings(){
+    const modal = document.createElement("div");
+    modal.className="modal";
+    modal.innerHTML = '<div class="card" style="max-width:640px;width:100%">'+
+      '<div class="row"><h3>設定</h3><div class="sp"></div><button class="btn" id="stClose">關閉</button></div>'+
+      '<div class="grid g2" style="margin-top:8px">'+
+        '<div><label>單位（≥1）</label><input id="stUnit" type="number" min="1"></div>'+
+        '<div><label>收入/支出 對應</label><select id="stMap"><option value="SELL_IN_BUY_OUT">收入=賣出｜支出=買入</option><option value="BUY_IN_SELL_OUT">收入=買入｜支出=賣出</option></select></div>'+
+        '<div><label>自動備份</label><select id="stAuto"><option value="true">開啟</option><option value="false">關閉</option></select></div>'+
+        '<div><label>備份保留數</label><input id="stKeep" type="number" min="1" value="10"></div>'+
+        '<div><label>日期格式</label><select id="stDate"><option value="ISO">ISO（YYYY-MM-DD）</option><option value="TW">民國年（YYY/MM/DD）</option></select></div>'+
+      '</div>'+
+      '<div class="row" style="margin-top:8px"><button class="btn ok" id="stSave">儲存</button></div>'+
+      '<div class="muted" style="margin-top:8px">變更「單位」會自動重建拆分與配對。</div>'+
+    '</div>';
+    document.body.appendChild(modal);
+    document.getElementById("stUnit").value = state.settings.unit;
+    document.getElementById("stMap").value = state.settings.map;
+    document.getElementById("stAuto").value = String(!!state.settings.autoBackup);
+    document.getElementById("stKeep").value = state.settings.backupKeep;
+    document.getElementById("stDate").value = state.settings.dateFormat||"ISO";
+    document.getElementById("stClose").onclick = function(){ modal.remove(); };
+    document.getElementById("stSave").onclick = function(){
+      pushHistory(); snapshot("settings");
+      const s = clone(state);
+      s.settings.unit = Math.max(1, Math.floor(Number(document.getElementById("stUnit").value||1)));
+      s.settings.map = document.getElementById("stMap").value;
+      s.settings.autoBackup = document.getElementById("stAuto").value==="true";
+      s.settings.backupKeep = Math.max(1, Math.floor(Number(document.getElementById("stKeep").value||10)));
+      s.settings.dateFormat = document.getElementById("stDate").value;
+      state = rebuild(s); save(state); render(); modal.remove();
+    };
+  }
+
+  // backup center
+  function openBackup(){
+    const keys = Object.keys(localStorage).filter(k=>k.startsWith(BAK_PREFIX)).sort();
+    const modal = document.createElement("div");
+    modal.className = "modal";
+    let rows = '';
+    for(const k of keys){
+      rows += '<tr><td>'+k.replace(BAK_PREFIX,"")+'</td><td><button class="btn" data-restore="'+esc(k)+'">還原</button> <button class="btn bad" data-del="'+esc(k)+'">刪除</button></td></tr>';
+    }
+    modal.innerHTML = '<div class="card" style="max-width:720px;width:100%">'+
+      '<div class="row"><h3>備份/還原</h3><div class="sp"></div><button class="btn" id="bkClose">關閉</button></div>'+
+      '<div class="muted" style="margin:6px 0">每次異動都會自動建立備份（依設定保留最近 N 份）。</div>'+
+      '<div style="max-height:360px;overflow:auto">'+
+        (keys.length? '<table><thead><tr><th>備份鍵</th><th>操作</th></tr></thead><tbody>'+rows+'</tbody></table>' : '<div class="muted">（暫無備份）</div>')+
+      '</div>'+
+      '<div class="row" style="margin-top:8px"><button class="btn ok" id="bkMake">立即建立備份</button></div>'+
+    '</div>';
+    document.body.appendChild(modal);
+    document.getElementById("bkClose").onclick = function(){ modal.remove(); };
+    document.getElementById("bkMake").onclick = function(){ snapshot("manual"); alert("已建立備份"); modal.remove(); };
+    modal.querySelectorAll("[data-restore]").forEach(function(b){
+      b.addEventListener("click", function(){
+        if(!confirm("還原此備份？")) return;
+        pushHistory();
+        const key = b.getAttribute("data-restore");
+        const raw = localStorage.getItem(key);
+        if(!raw) return alert("找不到備份");
+        state = rebuild(JSON.parse(raw)); save(state); render(); modal.remove();
+      });
+    });
+    modal.querySelectorAll("[data-del]").forEach(function(b){
+      b.addEventListener("click", function(){
+        const key = b.getAttribute("data-del");
+        try{ localStorage.removeItem(key); alert("已刪除"); modal.remove(); }catch(_){}
+      });
+    });
+  }
+
+  // help
+  function openHelp(){
+    const modal = document.createElement("div");
+    modal.className="modal";
+    modal.innerHTML = '<div class="card" style="max-width:720px;width:100%">'+
+      '<div class="row"><h3>使用說明</h3><div class="sp"></div><button class="btn" id="hpClose">關閉</button></div>'+
+      '<div class="grid">'+
+        '<div><b>快捷鍵</b>：<span class="kbd">Ctrl/⌘+Z</span> 復原、<span class="kbd">Ctrl/⌘+Y</span> 重做、在「訂單」中 <span class="kbd">N</span> 新增、<span class="kbd">S</span> 匯出、<span class="kbd">F</span> 快速搜尋。</div>'+
+        '<div>資料全保存在瀏覽器的 <code>localStorage</code>。跨電腦分享：匯出 JSON，對方匯入即可。</div>'+
+        '<div>刪除訂單會進入「回收桶」。永久刪除前都可還原。</div>'+
+        '<div>變更「單位」會自動重建拆分與配對；配對依時間先後 FIFO。</div>'+
+      '</div>'+
+    '</div>';
+    document.body.appendChild(modal);
+    document.getElementById("hpClose").onclick = function(){ modal.remove(); };
+  }
+
+  function download(text, type, name){
+    const blob = new Blob([text], {type});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = name; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function render(){
+    const UNIT = Math.max(1, Math.floor(state.settings.unit||1000));
+    const s = stats(state);
+    document.getElementById("statBuyOpen").textContent = s.buyOpen + "（≈ $" + (s.buyOpen*UNIT).toLocaleString() + "）";
+    document.getElementById("statSellOpen").textContent = s.sellOpen + "（≈ $" + (s.sellOpen*UNIT).toLocaleString() + "）";
+    document.getElementById("statRem").textContent = "$" + s.br.toLocaleString() + " / $" + s.sr.toLocaleString();
+    document.getElementById("statPairs").textContent = s.totalPairs + " 對";
+    document.getElementById("statUnit").textContent = UNIT.toLocaleString();
+
+    // Today income/expense snapshot
+    const mapMode = state.settings.map || "SELL_IN_BUY_OUT";
+    const today = todayStr();
+    const rows = state.transactions.filter(t=> (t.createdAt||"").slice(0,10)===today);
+    let income=0, expense=0;
+    for(const t of rows){
+      const inFlag = mapMode==="SELL_IN_BUY_OUT"? (t.side==="SELL") : (t.side==="BUY");
+      if(inFlag) income+=t.amount; else expense+=t.amount;
+    }
+    document.getElementById("statToday").textContent = "$"+income.toLocaleString()+" / $"+expense.toLocaleString();
+
+    if(tab==="dashboard") renderDash();
+    else if(tab==="orders") renderOrders(UNIT);
+    else if(tab==="customers") renderCustomers();
+    else if(tab==="split") renderSplit(UNIT);
+    else if(tab==="reportDay") renderReportDay();
+    else if(tab==="recycle") renderRecycle();
+    else renderQuery();
+  }
+
+  function renderDash(){
+    const latest = state.transactions.slice().sort((a,b)=> (b.createdAt||"").localeCompare(a.createdAt||"") || b.id-a.id).slice(0,10);
+    const byCust = {};
+    for(const t of state.transactions){
+      const key = t.customerId||"null";
+      if(!byCust[key]) byCust[key]={buy:0,sell:0,count:0};
+      if(t.side==="BUY") byCust[key].buy+=t.amount; else byCust[key].sell+=t.amount;
+      byCust[key].count++;
+    }
+    const ranked = Object.entries(byCust).map(([cid,v])=>({cid, ...v, net:v.sell-v.buy})).sort((a,b)=> b.sell-b.buy).slice(0,6);
+
+    view.innerHTML = ''
+      + '<section class="grid g3">'
+      +   '<div class="card"><h3>最近 10 筆訂單</h3><div id="last10" style="max-height:360px;overflow:auto;margin-top:8px"></div></div>'
+      +   '<div class="card"><h3>客戶概況（依賣出額）Top 6</h3><div id="custTop" style="max-height:360px;overflow:auto;margin-top:8px"></div></div>'
+      +   '<div class="card"><h3>快速操作</h3><div class="grid" style="margin-top:8px">'
+      +     '<button class="btn" onclick="document.querySelector(\'.tab[data-tab=orders]\').click()">新增訂單</button>'
+      +     '<button class="btn" onclick="document.querySelector(\'.tab[data-tab=reportDay]\').click()">查看今日日報</button>'
+      +     '<button class="btn" onclick="document.querySelector(\'.tab[data-tab=query]\').click()">周/月/年報表</button>'
+      +   '</div><div class="muted" style="margin-top:8px">收入/支出映射：'+(state.settings.map==="SELL_IN_BUY_OUT"?"收入=賣出／支出=買入":"收入=買入／支出=賣出")+'</div></div>'
+      + '</section>';
+
+    const el10 = document.getElementById("last10");
+    if(!latest.length) el10.innerHTML = '<div class="muted">（暫無）</div>';
+    else{
+      let rows='';
+      for(const t of latest){
+        const c = state.customers.find(x=>x.id===t.customerId);
+        rows += '<tr><td>'+t.createdAt+'</td><td><span class="tag">'+sideZh(t.side)+'</span></td><td class="right">$'+t.amount.toLocaleString()+'</td><td>'+(c? esc(c.name):'-')+'</td><td>'+esc(t.note||"")+'</td></tr>';
+      }
+      el10.innerHTML = '<table><thead><tr><th>時間</th><th>方向</th><th class="right">金額</th><th>客戶</th><th>備註</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    }
+
+    const elC = document.getElementById("custTop");
+    if(!ranked.length) elC.innerHTML = '<div class="muted">（暫無）</div>';
+    else{
+      let rows='';
+      for(const r of ranked){
+        const c = state.customers.find(x=> String(x.id)===String(r.cid));
+        rows += '<tr><td>'+(c? esc(c.code)+'｜'+esc(c.name):'—')+'</td><td class="right">$'+r.sell.toLocaleString()+'</td><td class="right">$'+r.buy.toLocaleString()+'</td><td class="right">$'+r.net.toLocaleString()+'</td><td class="right">'+r.count+'</td></tr>';
+      }
+      elC.innerHTML = '<table><thead><tr><th>客戶</th><th class="right">賣出總額</th><th class="right">買入總額</th><th class="right">淨額</th><th class="right">單數</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    }
+  }
+
+  function renderOrders(UNIT){
+    const custOpts = state.customers.slice().sort((a,b)=> Number(a.code)-Number(b.code));
+    var options = '<option value="">（未指定）</option>';
+    for(const c of custOpts){ options += '<option value="'+c.id+'">'+esc(c.code)+'｜'+esc(c.name)+(c.vip?'（VIP）':'')+'</option>'; }
+
+    view.innerHTML = ''
+      + '<section class="grid g3">'
+      +   '<div class="card" style="grid-column: span 2;">'
+      +     '<h3>新增訂單（自動拆分，單位 $'+UNIT+'）</h3>'
+      +     '<div class="grid g6" style="margin-top:8px">'
+      +       '<div><label>方向</label><select id="fSide"><option value="BUY">買入</option><option value="SELL">賣出</option></select></div>'
+      +       '<div><label>金額（$，整數）</label><input id="fAmt" type="number" min="1" placeholder="例如 '+(UNIT*3)+'"></div>'
+      +       '<div style="grid-column: span 2;"><label>客戶</label><select id="fCust">'+options+'</select></div>'
+      +       '<div style="grid-column: span 2;"><label>標籤（以逗號分隔）</label><input id="fTags" type="text" placeholder="例如：現金, 線上"></div>'
+      +       '<div style="grid-column: span 6;"><label>備註</label><input id="fNote" type="text" placeholder="可留空"></div>'
+      +     '</div>'
+      +     '<div class="row" style="margin-top:8px">'
+      +        '<button class="btn ok" id="btnAddTx" title="N">新增訂單</button>'
+      +        '<span class="muted" id="hintSplit"></span>'
+      +     '</div>'
+      +   '</div>'
+      +   '<div class="card"><h3>訂單列表（可修改/刪除｜顯示全部）</h3><div class="row"><input id="qTx" placeholder="快速搜尋（客戶名/備註/標籤）"><button class="btn" id="btnBulk">批量匯入 CSV</button></div><div id="txList" style="margin-top:8px; max-height:520px; overflow:auto"></div></div>'
+      + '</section>';
+
+    function refreshHint(){
+      const amt = Math.floor(Number(document.getElementById("fAmt").value||0));
+      if(!(amt>0)){ document.getElementById("hintSplit").textContent = ''; return; }
+      const units = Math.floor(amt/UNIT);
+      const rem = amt%UNIT;
+      document.getElementById("hintSplit").textContent = '將拆成 '+units+' 單位，餘額 $'+rem.toLocaleString();
+    }
+    document.getElementById("fAmt").addEventListener("input", refreshHint);
+    refreshHint();
+
+    document.getElementById("btnAddTx").onclick = function(){
+      pushHistory(); snapshot("add_tx");
+      const side = document.getElementById("fSide").value;
+      const amt = Math.floor(Number(document.getElementById("fAmt").value||0));
+      const custRaw = document.getElementById("fCust").value;
+      const tags = (document.getElementById("fTags").value||"").split(",").map(s=>s.trim()).filter(Boolean);
+      const note = document.getElementById("fNote").value||"";
+      const cid = custRaw? Number(custRaw) : null;
+      if(!Number.isFinite(amt) || amt<=0){ alert("金額需為正整數"); return; }
+      const s = clone(state);
+      const id = s.seq.tx++;
+      s.transactions.push({id, side, amount:amt, customerId:cid, note, tags, createdAt: nowISO()});
+      state = rebuild(s); save(state); render();
+    };
+
+    document.addEventListener("keydown", function onN(e){
+      if(tab!=="orders") return;
+      if(e.key==="n"||e.key==="N"){ e.preventDefault(); document.getElementById("btnAddTx").click(); }
+      if(e.key==="s"||e.key==="S"){ e.preventDefault(); document.getElementById("btnExport").click(); }
+      if(e.key==="f"||e.key==="F"){ const q=document.getElementById("qTx"); if(q){ q.focus(); q.select(); } }
+    }, {once:true});
+
+    function renderTxList(){
+      const txs = state.transactions.slice().reverse();
+      const el = document.getElementById("txList");
+      const qv = (document.getElementById("qTx").value||"").trim().toLowerCase();
+      const viewTx = txs.filter(function(t){
+        if(!qv) return true;
+        const c = state.customers.find(x=>x.id===t.customerId);
+        const str = [t.note||"", (c? c.name:""), (t.tags||[]).join(" ")].join(" ").toLowerCase();
+        return str.includes(qv);
+      });
+      if(!viewTx.length){ el.innerHTML = '<div class="muted">（無交易）</div>'; return; }
+      var rows = '';
+      for(const t of viewTx){
+        const c = state.customers.find(x=>x.id===t.customerId);
+        const cust = c ? esc(c.code)+'｜'+esc(c.name)+(c.vip?'（VIP）':'') : '—';
+        const tg = (t.tags||[]).map(x=>'<span class="pill">'+esc(x)+'</span>').join("");
+        rows += '<tr>'
+          + '<td>'+t.id+'</td>'
+          + '<td><span class="tag">'+sideZh(t.side)+'</span></td>'
+          + '<td class="right">$'+t.amount.toLocaleString()+'</td>'
+          + '<td>'+cust+'</td>'
+          + '<td>'+t.createdAt+'</td>'
+          + '<td>'+tg+' '+esc(t.note||"")+'</td>'
+          + '<td class="right"><button class="btn" data-edit="'+t.id+'">修改</button> '
+          + '<button class="btn bad" data-del="'+t.id+'">刪除</button></td>'
+          + '</tr>';
+      }
+      el.innerHTML = '<table><thead><tr><th>交易ID</th><th>方向</th><th class="right">金額</th><th>客戶</th><th>時間</th><th>標籤/備註</th><th>操作</th></tr></thead><tbody>'+rows+'</tbody></table>';
+
+      el.querySelectorAll("[data-del]").forEach(function(b){
+        b.addEventListener("click", function(){
+          const id = Number(b.getAttribute("data-del"));
+          if(!confirm("刪除此訂單？將移入回收桶，並自動重建配對。")) return;
+          pushHistory(); snapshot("delete_tx");
+          const s = clone(state);
+          const idx = s.transactions.findIndex(x=>x.id===id);
+          if(idx>=0){ const [del] = s.transactions.splice(idx,1); del.deletedAt = nowISO(); s.deleted.push(del); }
+          state = rebuild(s); save(state); render();
+        });
+      });
+      el.querySelectorAll("[data-edit]").forEach(function(b){
+        b.addEventListener("click", function(){ openEditTx(Number(b.getAttribute("data-edit"))); });
+      });
+    }
+    renderTxList();
+    document.getElementById("qTx").addEventListener("input", renderTxList);
+
+    // bulk import CSV
+    document.getElementById("btnBulk").onclick = function(){
+      const modal = document.createElement("div"); modal.className="modal";
+      modal.innerHTML = '<div class="card" style="max-width:720px;width:100%"><div class="row"><h3>批量匯入 CSV</h3><div class="sp"></div><button class="btn" id="bkClose">關閉</button></div>'+
+        '<div class="muted">欄位：side(BUY/SELL), amount(數字), customer_code(可空), note(可空), tags(逗號分隔), time(ISO 可空=現在)</div>'+
+        '<textarea id="csv" placeholder="BUY,1200,1,說明,現金,2025-11-14T09:00:00\nSELL,3000,2,,線上,"></textarea>'+
+        '<div class="row" style="margin-top:8px"><button class="btn ok" id="go">匯入</button></div></div>';
+      document.body.appendChild(modal);
+      document.getElementById("bkClose").onclick = function(){ modal.remove(); };
+      document.getElementById("go").onclick = function(){
+        const text = document.getElementById("csv").value.trim(); if(!text){ alert("請貼上 CSV"); return; }
+        const lines = text.split(/\r?\n/);
+        const s = clone(state); pushHistory(); snapshot("bulk_csv");
+        for(const line of lines){
+          const parts = line.split(",");
+          if(parts.length<2) continue;
+          const side = (parts[0]||"").trim().toUpperCase()==="SELL"?"SELL":"BUY";
+          const amt = Math.floor(Number((parts[1]||"").trim()||0));
+          if(!(amt>0)) continue;
+          const code = (parts[2]||"").trim();
+          const cust = state.customers.find(c=> String(c.code)===code);
+          const note = (parts[3]||"").trim();
+          const tags = (parts[4]||"").split(";").join(",").split(",").map(s=>s.trim()).filter(Boolean);
+          const time = (parts[5]||"").trim() || nowISO();
+          s.transactions.push({id:s.seq.tx++, side, amount:amt, customerId: cust? cust.id:null, note, tags, createdAt: time});
+        }
+        state = rebuild(s); save(state); render(); modal.remove(); alert("已匯入。");
+      };
+    };
+  }
+
+  function openEditTx(id){
+    const tx = state.transactions.find(function(t){ return t.id===id; }); if(!tx) return;
+    const custOpts = state.customers.slice().sort(function(a,b){ return Number(a.code)-Number(b.code); });
+    var options = '<option value="">（未指定）</option>';
+    for(const c of custOpts){ options += '<option value="'+c.id+'">'+esc(c.code)+'｜'+esc(c.name)+(c.vip?'（VIP）':'')+'</option>'; }
+
+    const modal = document.createElement("div");
+    modal.className="modal";
+    modal.innerHTML = ''
+      + '<div class="card" style="max-width:560px;width:100%"><div class="row"><h3>修改訂單</h3><div class="sp"></div><button class="btn" id="mClose">關閉</button></div>'
+      + '<div class="grid g2" style="margin-top:8px">'
+      +   '<div><label>方向</label><select id="mSide"><option value="BUY">買入</option><option value="SELL">賣出</option></select></div>'
+      +   '<div><label>金額（$）</label><input id="mAmt" type="number" min="1"></div>'
+      +   '<div style="grid-column: span 2;"><label>客戶</label><select id="mCust">'+options+'</select></div>'
+      +   '<div style="grid-column: span 2;"><label>標籤（逗號分隔）</label><input id="mTags" type="text"></div>'
+      +   '<div style="grid-column: span 2;"><label>備註</label><input id="mNote" type="text"></div>'
+      + '</div><div class="row" style="margin-top:8px"><button class="btn ok" id="mSave">儲存修改</button></div></div>';
+    document.body.appendChild(modal);
+
+    document.getElementById("mSide").value = tx.side;
+    document.getElementById("mAmt").value = tx.amount;
+    document.getElementById("mCust").value = (tx.customerId==null? '': String(tx.customerId));
+    document.getElementById("mTags").value = (tx.tags||[]).join(", ");
+    document.getElementById("mNote").value = tx.note || "";
+
+    document.getElementById("mClose").onclick = function(){ modal.remove(); };
+    document.getElementById("mSave").onclick = function(){
+      pushHistory(); snapshot("edit_tx");
+      const side = document.getElementById("mSide").value;
+      const amt = Math.floor(Number(document.getElementById("mAmt").value||0));
+      const custRaw = document.getElementById("mCust").value;
+      const tags = (document.getElementById("mTags").value||"").split(",").map(s=>s.trim()).filter(Boolean);
+      const note = document.getElementById("mNote").value||"";
+      if(!Number.isFinite(amt) || amt<=0){ alert("金額需為正整數"); return; }
+      const s = clone(state);
+      const idx = s.transactions.findIndex(function(t){ return t.id===tx.id; });
+      if(idx>=0){ s.transactions[idx] = { ...s.transactions[idx], side, amount:amt, customerId: custRaw? Number(custRaw): null, note, tags }; }
+      state = rebuild(s); save(state); render(); modal.remove();
+    };
+  }
+
+  function renderCustomers(){
+    const list = state.customers.slice().sort(function(a,b){ return Number(a.code)-Number(b.code); });
+    view.innerHTML = ''
+      + '<section class="grid g3">'
+      +   '<div class="card">'
+      +     '<h3>新增 / 編輯 客戶（含 VIP）</h3>'
+      +     '<div class="grid" style="margin-top:8px">'
+      +       '<div><label>客戶名稱</label><input id="cName" placeholder="例如：A 客人"></div>'
+      +       '<div><label>編號（由小到大排序）</label><input id="cCode" placeholder="例如：1、2、3…"></div>'
+      +       '<label class="row"><input type="checkbox" id="cVip">&nbsp;VIP</label>'
+      +       '<div><label>標籤（逗號分隔）</label><input id="cTags" placeholder="重點客戶, 台北"></div>'
+      +       '<div><button class="btn ok" id="cAdd">新增客戶</button></div>'
+      +       '<div class="muted">提示：名稱改為「客戶名稱」，代碼改為「編號」。</div>'
+      +     '</div>'
+      +   '</div>'
+      +   '<div class="card" style="grid-column: span 2;"><h3>客戶列表（按「編號」由小到大）</h3><div style="margin-top:8px; max-height:520px; overflow:auto" id="cList"></div></div>'
+      + '</section>';
+
+    document.getElementById("cAdd").onclick = function(){
+      pushHistory(); snapshot("add_customer");
+      const name = (document.getElementById("cName").value||"").trim() || "未命名";
+      const code = (document.getElementById("cCode").value||"").trim();
+      const vip = document.getElementById("cVip").checked;
+      const tags = (document.getElementById("cTags").value||"").split(",").map(s=>s.trim()).filter(Boolean);
+      const s = clone(state); const id = s.seq.customer++;
+      s.customers.push({id,name,code: code || String(id), vip, tags, createdAt: nowISO()});
+      state = s; save(state); render();
+    };
+
+    const box = document.getElementById("cList");
+    if(!list.length){ box.innerHTML = '<div class="muted">（尚無客戶）</div>'; return; }
+    var rows = '';
+    for(const c of list){
+      const tg = (c.tags||[]).map(x=>'<span class="pill">'+esc(x)+'</span>').join("");
+      // mini stats
+      const all = state.transactions.filter(t=>t.customerId===c.id);
+      const buy = all.filter(t=>t.side==="BUY").reduce((a,b)=>a+b.amount,0);
+      const sell = all.filter(t=>t.side==="SELL").reduce((a,b)=>a+b.amount,0);
+      rows += '<tr>'
+        + '<td>'+esc(c.name)+'</td>'
+        + '<td>'+esc(c.code)+'</td>'
+        + '<td>'+(c.vip?'是':'否')+'</td>'
+        + '<td>'+tg+'</td>'
+        + '<td class="right">$'+sell.toLocaleString()+' / $'+buy.toLocaleString()+'（賣/買）</td>'
+        + '<td>'+c.createdAt+'</td>'
+        + '<td class="right"><button class="btn" data-editc="'+c.id+'">修改</button> '
+        + '<button class="btn bad" data-delc="'+c.id+'">刪除</button></td>'
+        + '</tr>';
+    }
+    box.innerHTML = '<table><thead><tr><th>客戶名稱</th><th>編號</th><th>VIP</th><th>標籤</th><th class="right">總額</th><th>建立時間</th><th>操作</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    box.querySelectorAll("[data-delc]").forEach(function(b){
+      b.addEventListener("click", function(){
+        const id = Number(b.getAttribute("data-delc"));
+        if(!confirm("刪除此客戶？若有訂單將保留但失去客戶關聯。")) return;
+        pushHistory(); snapshot("delete_customer");
+        const s = clone(state);
+        s.customers = s.customers.filter(function(c){ return c.id!==id; });
+        s.transactions = s.transactions.map(function(t){ return t.customerId===id? { ...t, customerId:null } : t; });
+        state = rebuild(s); save(state); render();
+      });
+    });
+    box.querySelectorAll("[data-editc]").forEach(function(b){
+      b.addEventListener("click", function(){ openEditCustomer(Number(b.getAttribute("data-editc"))); });
+    });
+  }
+
+  function openEditCustomer(id){
+    const c = state.customers.find(function(x){ return x.id===id; }); if(!c) return;
+    const modal = document.createElement("div");
+    modal.className="modal";
+    modal.innerHTML = ''
+      + '<div class="card" style="max-width:520px;width:100%"><div class="row"><h3>修改客戶</h3><div class="sp"></div><button class="btn" id="mcClose">關閉</button></div>'
+      + '<div class="grid" style="margin-top:8px">'
+      +   '<div><label>客戶名稱</label><input id="mcName"></div>'
+      +   '<div><label>編號</label><input id="mcCode"></div>'
+      +   '<label class="row"><input id="mcVip" type="checkbox">&nbsp;VIP</label>'
+      +   '<div><label>標籤</label><input id="mcTags"></div>'
+      +   '<div><button class="btn ok" id="mcSave">儲存修改</button></div>'
+      + '</div></div>';
+    document.body.appendChild(modal);
+    document.getElementById("mcName").value = c.name;
+    document.getElementById("mcCode").value = c.code;
+    document.getElementById("mcVip").checked = !!c.vip;
+    document.getElementById("mcTags").value = (c.tags||[]).join(", ");
+    document.getElementById("mcClose").onclick = function(){ modal.remove(); };
+    document.getElementById("mcSave").onclick = function(){
+      pushHistory(); snapshot("edit_customer");
+      const s = clone(state);
+      const idx = s.customers.findIndex(function(x){ return x.id===id; });
+      if(idx>=0){
+        s.customers[idx] = { ...s.customers[idx], name: document.getElementById("mcName").value, code: document.getElementById("mcCode").value, vip: document.getElementById("mcVip").checked, tags: (document.getElementById("mcTags").value||"").split(",").map(x=>x.trim()).filter(Boolean) };
+        state = s; save(state); render(); modal.remove();
+      }
+    };
+  }
+
+  function renderSplit(UNIT){
+    const buys = state.units.filter(function(u){ return u.side==='BUY' && !u.matched; });
+    const sells = state.units.filter(function(u){ return u.side==='SELL' && !u.matched; });
+    const pairs = state.pairs.slice().reverse();
+    view.innerHTML = ''
+      + '<section class="grid g3">'
+      +   '<div class="card"><h3>未配對買入（全部）</h3><div class="muted">顯示全部單位｜共 '+buys.length+' 筆</div><div style="margin-top:8px;max-height:520px;overflow:auto" id="uBuy"></div></div>'
+      +   '<div class="card"><h3>未配對賣出（全部）</h3><div class="muted">顯示全部單位｜共 '+sells.length+' 筆</div><div style="margin-top:8px;max-height:520px;overflow:auto" id="uSell"></div></div>'
+      +   '<div class="card"><h3>配對紀錄（全部）</h3><div class="muted">顯示全部配對｜共 '+pairs.length+' 對</div><div style="margin-top:8px;max-height:520px;overflow:auto" id="pList"></div></div>'
+      + '</section>';
+
+    function tableUnits(arr){
+      if(!arr.length) return '<div class="muted">（無資料）</div>';
+      var rows=''; for(const u of arr){ rows+='<tr><td>'+u.id+'</td><td>'+u.txId+'</td><td>'+(u.customerId??'-')+'</td><td>'+u.createdAt+'</td></tr>'; }
+      return '<table><thead><tr><th>單位ID</th><th>交易ID</th><th>客戶ID</th><th>時間</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    }
+    function tablePairs(arr){
+      if(!arr.length) return '<div class="muted">（目前尚無配對）</div>';
+      var rows=''; for(const p of arr){
+        const bu = state.units.find(function(u){ return u.id===p.buyUnitId; });
+        const se = state.units.find(function(u){ return u.id===p.sellUnitId; });
+        const bCust = (state.customers.find(function(c){ return c.id===(bu&&bu.customerId); })||{}).name || "-";
+        const sCust = (state.customers.find(function(c){ return c.id===(se&&se.customerId); })||{}).name || "-";
+        rows+='<tr><td>'+p.id+'</td><td>'+p.pairedAt+'</td><td>'+((bu&&bu.txId)||"-")+'／'+bCust+'</td><td>'+((se&&se.txId)||"-")+'／'+sCust+'</td><td>$'+(state.settings.unit).toLocaleString()+'</td></tr>';
+      }
+      return '<table><thead><tr><th>配對ID</th><th>時間</th><th>BUY 交易ID/客戶</th><th>SELL 交易ID/客戶</th><th>金額（單位金額）</th></thead><tbody>'+rows+'</tbody></table>';
+    }
+    document.getElementById("uBuy").innerHTML = tableUnits(buys);
+    document.getElementById("uSell").innerHTML = tableUnits(sells);
+    document.getElementById("pList").innerHTML = tablePairs(pairs);
+  }
+
+  function renderQuery(){
+    const list = state.customers.slice().sort(function(a,b){ return Number(a.code)-Number(b.code); });
+    view.innerHTML = ''
+      + '<section class="card"><h3>個別客戶交易查詢（日 / 週 / 月 / 年 / 全部）</h3>'
+      + '<div class="grid g4" style="margin-top:8px">'
+      +   '<div style="grid-column: span 2;"><label>客戶</label><select id="qCust"><option value="">（請選擇客戶）</option></select></div>'
+      +   '<div><label>起日（YYYY-MM-DD）</label><input id="qFrom" type="date"></div>'
+      +   '<div><label>迄日（YYYY-MM-DD）</label><input id="qTo" type="date"></div>'
+      +   '<div><label>分組</label>'
+      +     '<select id="qGroup"><option value="day">日</option><option value="week">週</option><option value="month">月</option><option value="year">年</option><option value="all">全部</option></select>'
+      +   '</div>'
+      +   '<div class="row" style="align-items:end"><button class="btn" id="btnThisWeek">本週</button><button class="btn" id="btnThisMonth">本月</button><button class="btn" id="btnThisYear">今年</button><button class="btn" id="btnAll">全部</button><button class="btn" id="qExport">下載 CSV</button></div>'
+      + '</div><div id="qResult" style="margin-top:8px" class="muted">請先選擇客戶或按上方快速鍵。</div></section>';
+
+    const sel = document.getElementById("qCust");
+    for(const c of list){
+      const opt = document.createElement("option");
+      opt.value = c.id; opt.textContent = c.code + "｜" + c.name + (c.vip?"（VIP）":""); sel.appendChild(opt);
+    }
+    const qFrom = document.getElementById("qFrom");
+    const qTo = document.getElementById("qTo");
+    const qGroup = document.getElementById("qGroup");
+    const qResult = document.getElementById("qResult");
+    const btnExport = document.getElementById("qExport");
+
+    function setRangeThisWeek(){
+      const now = new Date();
+      const day = now.getDay()||7;
+      const monday = new Date(now); monday.setDate(now.getDate()-day+1);
+      const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+      qFrom.value = monday.toISOString().slice(0,10);
+      qTo.value = sunday.toISOString().slice(0,10);
+    }
+    function setRangeThisMonth(){
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth()+1, 0);
+      qFrom.value = start.toISOString().slice(0,10);
+      qTo.value = end.toISOString().slice(0,10);
+    }
+    function setRangeThisYear(){
+      const now = new Date();
+      const start = new Date(now.getFullYear(), 0, 1);
+      const end = new Date(now.getFullYear(), 11, 31);
+      qFrom.value = start.toISOString().slice(0,10);
+      qTo.value = end.toISOString().slice(0,10);
+    }
+    document.getElementById("btnThisWeek").onclick = function(){ setRangeThisWeek(); doQuery(); };
+    document.getElementById("btnThisMonth").onclick = function(){ setRangeThisMonth(); doQuery(); };
+    document.getElementById("btnThisYear").onclick = function(){ setRangeThisYear(); doQuery(); };
+    document.getElementById("btnAll").onclick = function(){ qFrom.value=""; qTo.value=""; doQuery(); };
+
+    btnExport.onclick = function(){
+      const res = doQuery(true);
+      if(!res) return;
+      const lines = [];
+      lines.push(["分組鍵","買入總額","賣出總額"].join(","));
+      for(const row of res.list){
+        lines.push([row.key, row.buy, row.sell].join(","));
+      }
+      lines.push("");
+      lines.push(["明細ID","時間","方向","金額","客戶名稱","備註"].join(","));
+      for(const d of res.details){
+        lines.push([d.id, d.time, d.side, d.amount, '"'+d.customer.replace(/"/g,'""')+'"', '"'+d.note.replace(/"/g,'""')+'"'].join(","));
+      }
+      download(lines.join("\n"), "text/csv", "range_report.csv");
+    };
+
+    function isoWeekKey(dStr){
+      const d = new Date(dStr+"T00:00:00");
+      const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const dayNum = date.getUTCDay() || 7;
+      date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+      const weekNo = Math.ceil((((date - yearStart)/86400000)+1)/7);
+      return date.getUTCFullYear()+"-W"+String(weekNo).padStart(2,'0');
+    }
+
+    function doQuery(returnData){
+      const cid = sel.value? Number(sel.value): null;
+      const from = qFrom.value || null;
+      const to = qTo.value || null;
+      const group = qGroup.value;
+
+      function inRange(ts){
+        const d = (ts||"").slice(0,10);
+        if(from && d < from) return false;
+        if(to && d > to) return false;
+        return true;
+      }
+
+      const all = state.transactions.filter(function(t){ return (!cid || t.customerId===cid) && inRange(t.createdAt); });
+      if(!all.length){ qResult.textContent = "（此條件下無資料）"; return returnData? null: undefined; }
+
+      if(group==="all"){
+        const totalBuy = all.filter(t=>t.side==="BUY").reduce((a,b)=>a+b.amount,0);
+        const totalSell = all.filter(t=>t.side==="SELL").reduce((a,b)=>a+b.amount,0);
+        const detail = all.sort((a,b)=> (a.createdAt||"").localeCompare(b.createdAt||"")).map(function(t){
+          const c = state.customers.find(x=>x.id===t.customerId);
+          return '#'+t.id+' '+sideZh(t.side)+' $'+t.amount.toLocaleString()+' ｜ '+t.createdAt+' ｜ '+(c? esc(c.name):"-")+' ｜ '+esc(t.note||"");
+        }).join('<br>');
+        qResult.innerHTML = '<div class="muted">分組：全部（彙總）</div>'
+          + '<table><thead><tr><th>買入總額</th><th>賣出總額</th><th>明細（按時間）</th></tr></thead>'
+          + '<tbody><tr><td>$'+totalBuy.toLocaleString()+'</td><td>$'+totalSell.toLocaleString()+'</td><td>'+detail+'</td></tr></tbody></table>';
+        return returnData? {list:[{key:"ALL",buy:totalBuy,sell:totalSell}], details: all.map(x=>({id:x.id,time:x.createdAt,side:x.side,amount:x.amount,customer:(state.customers.find(c=>c.id===x.customerId)||{}).name||"",note:x.note||""}))} : undefined;
+      }
+
+      const by = {};
+      for(const t of all){
+        const day = (t.createdAt||"").slice(0,10);
+        let key = day;
+        if(group==="week") key = isoWeekKey(day);
+        else if(group==="month") key = day.slice(0,7);
+        else if(group==="year") key = day.slice(0,4);
+        if(!by[key]) by[key] = {key, buy:0, sell:0, items:[]};
+        if(t.side==="BUY") by[key].buy += t.amount; else by[key].sell += t.amount;
+        by[key].items.push(t);
+      }
+      const keys = Object.keys(by).sort();
+      var html = '<div class="muted">分組：'+({"day":"日","week":"週","month":"月","year":"年"}[group]||"日")+'</div>';
+      html += '<table><thead><tr><th>區間</th><th>買入總額</th><th>賣出總額</th><th>明細</th></tr></thead><tbody>';
+      const listOut = [];
+      const detailsOut = [];
+      for(const k of keys){
+        const r = by[k];
+        const detail = r.items.sort((a,b)=> (a.createdAt||"").localeCompare(b.createdAt||"")).map(function(t){
+          const c = state.customers.find(x=>x.id===t.customerId);
+          detailsOut.push({id:t.id,time:t.createdAt,side:t.side,amount:t.amount,customer:(c? c.name:""),note:t.note||""});
+          return '#'+t.id+' '+sideZh(t.side)+' $'+t.amount.toLocaleString()+' ｜ '+t.createdAt+' ｜ '+(c? esc(c.name):"-")+' ｜ '+esc(t.note||"");
+        }).join('<br>');
+        listOut.push({key:k,buy:r.buy,sell:r.sell});
+        html += '<tr><td>'+k+'</td><td>$'+r.buy.toLocaleString()+'</td><td>$'+r.sell.toLocaleString()+'</td><td>'+detail+'</td></tr>';
+      }
+      html += '</tbody></table>';
+      qResult.innerHTML = html;
+      return returnData? {list:listOut, details:detailsOut} : undefined;
+    }
+
+    sel.addEventListener("change", doQuery);
+    qFrom.addEventListener("change", doQuery);
+    qTo.addEventListener("change", doQuery);
+    qGroup.addEventListener("change", doQuery);
+  }
+
+  // daily report
+  function renderReportDay(){
+    const list = state.customers.slice().sort(function(a,b){ return Number(a.code)-Number(b.code); });
+    const today = new Date().toISOString().slice(0,10);
+    view.innerHTML = ''
+      + '<section class="card"><h3>單日報表（總收入 / 總支出 / 餘額 / 客戶拆解 / 期初滾存 / 當日配對金額）</h3>'
+      + '<div class="grid g4" style="margin-top:8px">'
+      +   '<div><label>日期</label><input id="dDate" type="date" value="'+today+'"></div>'
+      +   '<div><label>客戶（可留空＝全部）</label><select id="dCust"><option value="">全部客戶</option></select></div>'
+      +   '<div><label>收入/支出 對應</label><select id="dMap"><option value="SELL_IN_BUY_OUT">收入=賣出｜支出=買入（預設）</option><option value="BUY_IN_SELL_OUT">收入=買入｜支出=賣出（反轉）</option></select></div>'
+      +   '<div class="row" style="align-items:end"><button class="btn" id="dExport">下載 CSV</button><button class="btn" id="dPrint">列印</button></div>'
+      + '</div>'
+      + '<div class="grid g3" style="margin-top:8px">'
+      +   '<div class="stat"><div class="t">總收入</div><div class="v" id="dIncome">$0</div></div>'
+      +   '<div class="stat"><div class="t">總支出</div><div class="v" id="dExpense">$0</div></div>'
+      +   '<div class="stat"><div class="t">餘額（收入-支出）</div><div class="v" id="dBalance">$0</div></div>'
+      + '</div>'
+      + '<div class="grid g3" style="margin-top:8px">'
+      +   '<div class="stat"><div class="t">期初未配對（買 / 賣 單位）</div><div class="v" id="dOpening">0 / 0</div></div>'
+      +   '<div class="stat"><div class="t">期初餘額（買 / 賣 金額）</div><div class="v" id="dOpeningAmt">$0 / $0</div></div>'
+      +   '<div class="stat"><div class="t">當日配對金額（單位×單位金額）</div><div class="v" id="dMatched">$0</div></div>'
+      + '</div>'
+      + '<div style="margin-top:8px" id="dDetail" class="muted">請選日期（與客戶）以計算。下方含「按客戶拆解」。</div>'
+      + '</section>';
+
+    const sel = document.getElementById("dCust");
+    for(const c of list){
+      const opt = document.createElement("option");
+      opt.value = c.id; opt.textContent = c.code + "｜" + c.name + (c.vip?"（VIP）":""); sel.appendChild(opt);
+    }
+    const dDate = document.getElementById("dDate");
+    const dMap = document.getElementById("dMap");
+    dMap.value = state.settings.map || "SELL_IN_BUY_OUT";
+    dMap.addEventListener("change", function(){
+      pushHistory(); snapshot("change_map");
+      const s = clone(state);
+      s.settings.map = dMap.value;
+      state = s; save(state);
+      calc();
+    });
+
+    document.getElementById("dPrint").onclick = function(){ window.print(); };
+
+    function openingCarry(dateStr){
+      const s = clone(state);
+      s.units = []; s.pairs = [];
+      s.settings.buyRemainder = 0; s.settings.sellRemainder = 0;
+      s.seq.unit = 1; s.seq.pair = 1;
+      const UNIT = Math.max(1, Math.floor(s.settings.unit||1000));
+      const ordered = s.transactions.slice().sort((a,b)=> (a.createdAt||"").localeCompare(b.createdAt||"") || a.id-b.id);
+      for(const tx of ordered){
+        const day = (tx.createdAt||"").slice(0,10);
+        if(day >= dateStr) break;
+        const side = tx.side==="SELL" ? "SELL":"BUY";
+        const remKey = side==="BUY" ? "buyRemainder":"sellRemainder";
+        const total = (s.settings[remKey]||0) + Number(tx.amount||0);
+        const count = Math.floor(total/UNIT);
+        s.settings[remKey] = total%UNIT;
+        for(let i=0;i<count;i++){
+          s.units.push({id:s.seq.unit++, side, txId:tx.id, customerId:tx.customerId||null, createdAt:tx.createdAt, matched:false});
+        }
+        const buys = s.units.filter(u=>u.side==="BUY"&&!u.matched).map(u=>u.id).sort((a,b)=>a-b);
+        const sells = s.units.filter(u=>u.side==="SELL"&&!u.matched).map(u=>u.id).sort((a,b)=>a-b);
+        const n=Math.min(buys.length,sells.length);
+        for(let i=0;i<n;i++){
+          const buId=buys[i], seId=sells[i];
+          s.pairs.push({id:s.seq.pair++, buyUnitId:buId, sellUnitId:seId, pairedAt:nowISO()});
+          const bu=s.units.find(x=>x.id===buId); if(bu) bu.matched=true;
+          const se=s.units.find(x=>x.id===seId); if(se) se.matched=true;
+        }
+      }
+      const buyOpen = s.units.filter(u=>u.side==='BUY'&&!u.matched).length;
+      const sellOpen = s.units.filter(u=>u.side==='SELL'&&!u.matched).length;
+      return { buyOpen, sellOpen, br:s.settings.buyRemainder||0, sr:s.settings.sellRemainder||0, unit: UNIT };
+    }
+
+    function calc(){
+      const day = dDate.value || today;
+      const cid = sel.value? Number(sel.value): null;
+      const mapMode = dMap.value;
+      const UNIT = Math.max(1, Math.floor(state.settings.unit||1000));
+
+      const rows = state.transactions.filter(function(t){
+        const d = (t.createdAt||"").slice(0,10);
+        return d===day && (!cid || t.customerId===cid);
+      }).sort(function(a,b){ return (a.createdAt||"").localeCompare(b.createdAt||""); });
+
+      let income=0, expense=0;
+      for(const t of rows){
+        const isIncome = (mapMode==="SELL_IN_BUY_OUT") ? (t.side==="SELL") : (t.side==="BUY");
+        if(isIncome) income += t.amount; else expense += t.amount;
+      }
+      const balance = income - expense;
+      document.getElementById("dIncome").textContent = "$"+income.toLocaleString();
+      document.getElementById("dExpense").textContent = "$"+expense.toLocaleString();
+      document.getElementById("dBalance").textContent = "$"+balance.toLocaleString();
+
+      const oc = openingCarry(day);
+      document.getElementById("dOpening").textContent = oc.buyOpen+" / "+oc.sellOpen;
+      document.getElementById("dOpeningAmt").textContent = "$"+(oc.br).toLocaleString()+" / $"+(oc.sr).toLocaleString();
+
+      const matchedPairs = state.pairs.filter(function(p){ return (p.pairedAt||"").slice(0,10)===day; }).length;
+      document.getElementById("dMatched").textContent = "$"+(matchedPairs*UNIT).toLocaleString();
+
+      if(!rows.length){ document.getElementById("dDetail").innerHTML = "（此條件下無資料）"; bindExport([]); return; }
+      const per = {};
+      for(const t of rows){
+        const c = state.customers.find(x=>x.id===t.customerId);
+        const name = c? c.name : "(未指定)";
+        if(!per[name]) per[name] = {income:0, expense:0, items:[]};
+        const inFlag = (mapMode==="SELL_IN_BUY_OUT") ? (t.side==="SELL") : (t.side==="BUY");
+        if(inFlag) per[name].income += t.amount; else per[name].expense += t.amount;
+        per[name].items.push(t);
+      }
+      const names = Object.keys(per).sort();
+      let perRows='';
+      for(const n of names){
+        const r = per[n];
+        perRows += '<tr><td>'+esc(n)+'</td><td class="right">$'+r.income.toLocaleString()+'</td><td class="right">$'+r.expense.toLocaleString()+'</td><td class="right">$'+(r.income-r.expense).toLocaleString()+'</td></tr>';
+      }
+
+      const listRows = rows.map(function(t){
+        const c = state.customers.find(x=>x.id===t.customerId);
+        const tg = (t.tags||[]).map(x=>'<span class="pill">'+esc(x)+'</span>').join("");
+        return '<tr><td>'+t.createdAt+'</td><td>'+sideZh(t.side)+'</td><td class="right">$'+t.amount.toLocaleString()+'</td><td>'+(c? esc(c.name):'-')+'</td><td>'+tg+' '+esc(t.note||"")+'</td></tr>';
+      }).join("");
+
+      document.getElementById("dDetail").innerHTML = ''
+        + '<div class="grid g2">'
+        +   '<div class="card"><h3>當日明細</h3><div style="max-height:360px;overflow:auto"><table><thead><tr><th>時間</th><th>方向</th><th class="right">金額</th><th>客戶</th><th>標籤/備註</th></tr></thead><tbody>'+listRows+'</tbody></table></div></div>'
+        +   '<div class="card"><h3>按客戶拆解</h3><div style="max-height:360px;overflow:auto"><table><thead><tr><th>客戶</th><th class="right">收入</th><th class="right">支出</th><th class="right">淨額</th></tr></thead><tbody>'+perRows+'</tbody></table></div></div>'
+        + '</div>';
+
+      bindExport(rows, per);
+    }
+
+    function bindExport(rows, per){
+      const btn = document.getElementById("dExport");
+      const day = (document.getElementById("dDate").value || today);
+      const mapMode = dMap.value;
+      btn.onclick = function(){
+        const lines = [];
+        const income = document.getElementById("dIncome").textContent.replace(/[^\d\-]/g,"")||"0";
+        const expense = document.getElementById("dExpense").textContent.replace(/[^\d\-]/g,"")||"0";
+        const balance = document.getElementById("dBalance").textContent.replace(/[^\d\-]/g,"")||"0";
+        const opening = document.getElementById("dOpening").textContent;
+        const openingAmt = document.getElementById("dOpeningAmt").textContent.replace(/[^\d\/\d\-,$ ]/g,"");
+        const matched = document.getElementById("dMatched").textContent.replace(/[^\d\-]/g,"")||"0";
+        lines.push(["日期","映射","總收入","總支出","餘額","期初未配對（買/賣 單位）","期初餘額（買/賣 金額）","當日配對金額"].join(","));
+        lines.push([day, mapMode, income, expense, balance, opening, openingAmt, matched].join(","));
+        lines.push("");
+        if(per){
+          lines.push("按客戶");
+          lines.push(["customer","income","expense","net"].join(","));
+          for(const name of Object.keys(per)){
+            const r = per[name];
+            lines.push(['"'+name.replace(/"/g,'""')+'"', r.income, r.expense, (r.income-r.expense)].join(","));
+          }
+          lines.push("");
+        }
+        lines.push("明細");
+        lines.push(["time","side","amount","customer","note","tags"].join(","));
+        (rows||[]).forEach(function(t){
+          const c = state.customers.find(x=>x.id===t.customerId);
+          lines.push([t.createdAt, t.side, t.amount, '"'+((c? c.name:"").replace(/"/g,'""'))+'"', '"'+(t.note||"").replace(/"/g,'""')+'"', '"'+(t.tags||[]).join(" ").replace(/"/g,'""')+'"'].join(","));
+        });
+        download(lines.join("\n"), "text/csv", "daily_ultimate_"+day+".csv");
+      };
+    }
+
+    const selEl = document.getElementById("dCust");
+    selEl.addEventListener("change", calc);
+    dDate.addEventListener("change", calc);
+    calc();
+  }
+
+  function renderRecycle(){
+    const list = state.deleted.slice().sort((a,b)=> (b.deletedAt||"").localeCompare(a.deletedAt||""));
+    view.innerHTML = '<section class="card"><h3>回收桶（可還原或永久刪除）</h3><div id="rc"></div></section>';
+    const box = document.getElementById("rc");
+    if(!list.length){ box.innerHTML = '<div class="muted">（空）</div>'; return; }
+    var rows='';
+    for(const t of list){
+      rows += '<tr><td>'+t.deletedAt+'</td><td>#'+t.id+'</td><td><span class="tag">'+sideZh(t.side)+'</span></td><td class="right">$'+t.amount.toLocaleString()+'</td><td>'+(t.customerId??"-")+'</td><td>'+esc(t.note||"")+'</td><td class="right"><button class="btn" data-restore="'+t.id+'">還原</button> <button class="btn bad" data-drop="'+t.id+'">永久刪除</button></td></tr>';
+    }
+    box.innerHTML = '<table><thead><tr><th>刪除時間</th><th>交易ID</th><th>方向</th><th class="right">金額</th><th>客戶ID</th><th>備註</th><th>操作</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    box.querySelectorAll("[data-restore]").forEach(function(b){
+      b.addEventListener("click", function(){
+        const id = Number(b.getAttribute("data-restore"));
+        pushHistory(); snapshot("restore_tx");
+        const s = clone(state);
+        const idx = s.deleted.findIndex(x=>x.id===id);
+        if(idx>=0){ const [rec] = s.deleted.splice(idx,1); delete rec.deletedAt; s.transactions.push(rec); s.transactions.sort((a,b)=>a.id-b.id); }
+        state = rebuild(s); save(state); render();
+      });
+    });
+    box.querySelectorAll("[data-drop]").forEach(function(b){
+      b.addEventListener("click", function(){
+        const id = Number(b.getAttribute("data-drop"));
+        if(!confirm("永久刪除此筆刪除紀錄？")) return;
+        pushHistory(); snapshot("purge_tx");
+        const s = clone(state);
+        s.deleted = s.deleted.filter(x=>x.id!==id);
+        state = s; save(state); render();
+      });
+    });
+  }
+
+  // initial render
+  render();
+
+})();</script>
+</body>
+</html>
